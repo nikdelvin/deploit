@@ -106,17 +106,13 @@ echo -e "\e[32mSETUP PROCESS >>>\e[0m Installing n8n..."
 cd /var/www
 mkdir n8n
 cd n8n
-curl -O https://raw.githubusercontent.com/n8n-io/n8n-hosting/main/docker-compose/withPostgresAndWorker/docker-compose.yml
+curl -O https://raw.githubusercontent.com/nikdelvin/deploit/main/n8n/docker-compose.yml
 curl -o init-data.sh https://raw.githubusercontent.com/n8n-io/n8n-hosting/main/docker-compose/withPostgresAndWorker/init-data.sh
-POSTGRES_USER=root
 POSTGRES_PASSWORD=$(openssl rand -base64 16)
-POSTGRES_DB=n8n
 POSTGRES_NON_ROOT_USER="$USER"
 POSTGRES_NON_ROOT_PASSWORD=$(openssl rand -base64 16)
 ENCRYPTION_KEY=$(openssl rand -base64 16)
-N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
-N8N_RUNNERS_ENABLED=true
-echo -e "POSTGRES_USER=\"root\"\nPOSTGRES_PASSWORD=\"$POSTGRES_PASSWORD\"\nPOSTGRES_DB=\"n8n\"\nPOSTGRES_NON_ROOT_USER=\"$USER\"\nPOSTGRES_NON_ROOT_PASSWORD=\"$POSTGRES_NON_ROOT_PASSWORD\"\nENCRYPTION_KEY=\"$ENCRYPTION_KEY\"\nN8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true\nN8N_RUNNERS_ENABLED=true" > .env
+echo -e "SUBDOMAIN=\"workflow\"\nDOMAIN_NAME=\"$DOMAIN\"\nPOSTGRES_USER=\"root\"\nPOSTGRES_PASSWORD=\"$POSTGRES_PASSWORD\"\nPOSTGRES_DB=\"n8n\"\nPOSTGRES_NON_ROOT_USER=\"$USER\"\nPOSTGRES_NON_ROOT_PASSWORD=\"$POSTGRES_NON_ROOT_PASSWORD\"\nENCRYPTION_KEY=\"$ENCRYPTION_KEY\"" > .env
 sudo docker compose --env-file .env up -d
 echo -e "\e[32mSETUP PROCESS >>>\e[0m Waiting for N8N deploy to be completed..."
 sleep 60
