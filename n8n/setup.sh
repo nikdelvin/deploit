@@ -1,8 +1,9 @@
 #!/bin/bash
 
 DOMAIN=""
+SUBDOMAIN=""
 PASSWORD=""
-OPTIONS="p:u:d:h:r"
+OPTIONS="p:u:d:s:h:r"
 
 while getopts "$OPTIONS" OPT; do
     case $OPT in
@@ -11,6 +12,9 @@ while getopts "$OPTIONS" OPT; do
             ;;
         d)
             DOMAIN="$OPTARG"
+            ;;
+        s)
+            SUBDOMAIN="$OPTARG"
             ;;
         h)
             echo -e "\e[32mSETUP PROCESS >>>\e[0m Usage: $0 -p <password> -d <domain>"
@@ -22,8 +26,8 @@ while getopts "$OPTIONS" OPT; do
             echo -e "\e[31mREMOVAL PROCESS >>>\e[0m This command execution will remove all N8N data from this machine including:"
             echo -e "\e[33m1.\e[0m Docker volumes, images and containers" 
             echo -e "\e[33m2.\e[0m Dockerfile folder and it's contains"
-            echo -e "\e[33m3.\e[0m Nginx configaration for workflow.$DOMAIN"
-            echo -e "\e[33m4.\e[0m Let's Encrypt SSL certificates for workflow.$DOMAIN"
+            echo -e "\e[33m3.\e[0m Nginx configaration for $SUBDOMAIN.$DOMAIN"
+            echo -e "\e[33m4.\e[0m Let's Encrypt SSL certificates for $SUBDOMAIN.$DOMAIN"
             while true; do
                 read -p "Do you want to proceed? (yes/no) " yn
                 case $yn in
@@ -32,8 +36,8 @@ while getopts "$OPTIONS" OPT; do
                         cd /var/www/n8n
                         echo $PASSWORD | sudo docker compose down --volumes --rmi all
                         sudo rm -rf /var/www/n8n
-                        sudo certbot --non-interactive delete --cert-name workflow.$DOMAIN
-                        sudo rm -rf /etc/nginx/sites-enabled/workflow.$DOMAIN.conf
+                        sudo certbot --non-interactive delete --cert-name $SUBDOMAIN.$DOMAIN
+                        sudo rm -rf /etc/nginx/sites-enabled/$SUBDOMAIN.$DOMAIN.conf
                         echo -e "\e[31mREMOVAL PROCESS >>>\e[0m Completed"
                         exit 0
                         ;;
@@ -67,9 +71,14 @@ if [ -z "$DOMAIN" ]; then
     echo "Use -h for help." >&2
     exit 1
 fi
+if [ -z "$SUBDOMAIN" ]; then
+    echo -e "\e[31mSETUP ERROR >>>\e[0m Sub domain name (-s) is required." >&2
+    echo "Use -h for help." >&2
+    exit 1
+fi
 
 echo -e "\e[32mSETUP INITIALIZATION >>>\e[0m Please be ensure that before start this initialization you created all necessary DNS records for your domain:"
-echo -e "\e[33m1.\e[0m workflow.$DOMAIN"
+echo -e "\e[33m1.\e[0m $SUBDOMAIN.$DOMAIN"
 echo -e "\e[32mSETUP PROCESS >>>\e[0m Started"
 echo $PASSWORD | sudo -S apt update
 sudo apt upgrade -y
@@ -126,16 +135,16 @@ else
 fi
 echo -e "\e[32mSETUP PROCESS >>>\e[0m Configuring NGINX for n8n..."
 cd /etc/nginx/sites-enabled
-echo -e "map \$http_upgrade \$connection_upgrade {\n\tdefault upgrade;\n\t'' close;\n}\nserver {\n\tserver_name workflow.$DOMAIN;\n\tlocation / {\n\t\tproxy_pass http://127.0.0.1:5678;proxy_set_header Upgrade \$http_upgrade;\n\t\tproxy_set_header Connection "upgrade";\n\t}\n\tlisten [::]:80;\n}" > "workflow.$DOMAIN.conf"
+echo -e "map \$http_upgrade \$connection_upgrade {\n\tdefault upgrade;\n\t'' close;\n}\nserver {\n\tserver_name $SUBDOMAIN.$DOMAIN;\n\tlocation / {\n\t\tproxy_pass http://127.0.0.1:5678;\nproxy_set_header Upgrade \$http_upgrade;\n\t\tproxy_set_header Connection "upgrade";\n\t}\n\tlisten [::]:80;\n}" > "$SUBDOMAIN.$DOMAIN.conf"
 echo -e "\e[32mSETUP PROCESS >>>\e[0m Installing Certbot for NGINX..."
 sudo snap install core; sudo snap refresh core
 sudo snap install --classic certbot
 sudo ln -s /snap/bin/certbot /usr/bin/certbot
-sudo certbot --non-interactive --agree-tos --nginx -d "workflow.$DOMAIN"
+sudo certbot --non-interactive --agree-tos --nginx -d "$SUBDOMAIN.$DOMAIN"
 sudo service nginx restart
 echo -e "\e[32mSETUP PROCESS >>>\e[0m Waiting for DNS deploy to be completed..."
 sleep 60
-NGINX_SETUP_RESULT=$(curl https://workflow.$DOMAIN/setup | \
+NGINX_SETUP_RESULT=$(curl https://$SUBDOMAIN.$DOMAIN/setup | \
     grep "n8n")
 if [[ -n "$NGINX_SETUP_RESULT" ]]; then
     echo -e "\e[32mSETUP PROCESS >>>\e[0m N8N DNS deploy completed"
@@ -143,4 +152,4 @@ else
     echo -e "\e[31mSETUP ERROR >>>\e[0m N8N DNS deploy not completed"
     exit 1
 fi
-echo -e "\e[32mSETUP COMPLETED >>>\e[0m All is set! Go ahead and visit https://workflow.$DOMAIN"
+echo -e "\e[32mSETUP COMPLETED >>>\e[0m All is set! Go ahead and visit https://$SUBDOMAIN.$DOMAIN"
