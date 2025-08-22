@@ -135,7 +135,7 @@ else
 fi
 echo -e "\e[32mSETUP PROCESS >>>\e[0m Configuring NGINX for n8n..."
 cd /etc/nginx/sites-enabled
-echo -e "map \$http_upgrade \$connection_upgrade {\n\tdefault upgrade;\n\t'' close;\n}\nserver {\n\tserver_name $SUBDOMAIN.$DOMAIN;\n\tlocation / {\n\t\tproxy_pass http://127.0.0.1:5678;\nproxy_set_header Upgrade \$http_upgrade;\n\t\tproxy_set_header Connection "upgrade";\n\t}\n\tlisten [::]:80;\n}" > "$SUBDOMAIN.$DOMAIN.conf"
+echo -e "map \$http_upgrade \$connection_upgrade {\n\tdefault upgrade;\n\t'' close;\n}\nserver {\n\tserver_name $SUBDOMAIN.$DOMAIN;\n\tlocation / {\n\t\tproxy_pass http://127.0.0.1:5678;\n\t\tproxy_http_version 1.1;\n\t\tproxy_set_header Upgrade \$http_upgrade;\n\t\tproxy_set_header Connection \"upgrade\";\n\t\tproxy_set_header Host \$host;\n\t\tproxy_set_header Origin \"https://$SUBDOMAIN.$DOMAIN\";\n\t\tproxy_set_header X-Real-IP \$remote_addr;\n\t}\n\tlisten [::]:80;\n}" > "$SUBDOMAIN.$DOMAIN.conf"
 echo -e "\e[32mSETUP PROCESS >>>\e[0m Installing Certbot for NGINX..."
 sudo snap install core; sudo snap refresh core
 sudo snap install --classic certbot
