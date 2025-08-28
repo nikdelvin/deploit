@@ -1,8 +1,9 @@
 #!/bin/bash
 
 DOMAIN=""
+SUBDOMAIN=""
 PASSWORD=""
-OPTIONS="p:u:d:h:r"
+OPTIONS="p:u:d:s:h:r"
 
 while getopts "$OPTIONS" OPT; do
     case $OPT in
@@ -12,6 +13,9 @@ while getopts "$OPTIONS" OPT; do
         d)
             DOMAIN="$OPTARG"
             ;;
+        s)
+            SUBDOMAIN="$OPTARG"
+            ;;
         h)
             echo -e "\e[32mSETUP PROCESS >>>\e[0m Usage: $0 -p <password> -d <domain>"
             echo "  -p <password>: Specifies the current user password."
@@ -19,21 +23,21 @@ while getopts "$OPTIONS" OPT; do
             exit 0
             ;;
         r)
-            echo -e "\e[31mREMOVAL PROCESS >>>\e[0m This command execution will remove all Directus data from this machine including:"
+            echo -e "\e[31mREMOVAL PROCESS >>>\e[0m This command execution will remove all Siyuan data from this machine including:"
             echo -e "\e[33m1.\e[0m Docker volumes, images and containers" 
             echo -e "\e[33m2.\e[0m Dockerfile folder and it's contains"
-            echo -e "\e[33m3.\e[0m Nginx configaration for directus.$DOMAIN"
-            echo -e "\e[33m4.\e[0m Let's Encrypt SSL certificates for directus.$DOMAIN"
+            echo -e "\e[33m3.\e[0m Nginx configaration for $SUBDOMAIN.$DOMAIN"
+            echo -e "\e[33m4.\e[0m Let's Encrypt SSL certificates for $SUBDOMAIN.$DOMAIN"
             while true; do
                 read -p "Do you want to proceed? (yes/no) " yn
                 case $yn in
                     [Yy]* ) 
                         echo "Proceeding..."
-                        cd /var/www/directus
+                        cd /var/www/siyuan
                         echo $PASSWORD | sudo docker compose down --volumes --rmi all
-                        sudo rm -rf /var/www/directus
-                        sudo certbot --non-interactive delete --cert-name directus.$DOMAIN
-                        sudo rm -rf /etc/nginx/sites-enabled/directus.$DOMAIN.conf
+                        sudo rm -rf /var/www/siyuan
+                        sudo certbot --non-interactive delete --cert-name $SUBDOMAIN.$DOMAIN
+                        sudo rm -rf /etc/nginx/sites-enabled/$SUBDOMAIN.$DOMAIN.conf
                         echo -e "\e[31mREMOVAL PROCESS >>>\e[0m Completed"
                         exit 0
                         ;;
@@ -67,9 +71,14 @@ if [ -z "$DOMAIN" ]; then
     echo "Use -h for help." >&2
     exit 1
 fi
+if [ -z "$SUBDOMAIN" ]; then
+    echo -e "\e[31mSETUP ERROR >>>\e[0m Sub domain name (-s) is required." >&2
+    echo "Use -h for help." >&2
+    exit 1
+fi
 
 echo -e "\e[32mSETUP INITIALIZATION >>>\e[0m Please be ensure that before start this initialization you created all necessary DNS records for your domain:"
-echo -e "\e[33m1.\e[0m directus.$DOMAIN"
+echo -e "\e[33m1.\e[0m $SUBDOMAIN.$DOMAIN"
 echo -e "\e[32mSETUP PROCESS >>>\e[0m Started"
 echo $PASSWORD | sudo -S apt update
 sudo apt upgrade -y
@@ -102,47 +111,43 @@ else
     echo -e "\e[31mSETUP ERROR >>>\e[0m Docker Installation not completed"
     exit 1
 fi
-echo -e "\e[32mSETUP PROCESS >>>\e[0m Installing Directus..."
+echo -e "\e[32mSETUP PROCESS >>>\e[0m Installing Siyuan..."
 cd /var/www
-mkdir directus
-cd directus
-mkdir database
-mkdir uploads
-mkdir extensions
-DIRECTUS_SECRET=$(openssl rand -base64 16)
-DIRECTUS_VERSION_STR=$(curl -s https://api.github.com/repos/directus/directus/releases/latest | jq '.tag_name')
-DIRECTUS_VERSION=$(sed 's/"//g' <<< "$DIRECTUS_VERSION_STR")
-DIRECTUS_TAG=$(sed 's/^.\{1\}//g' <<< "$DIRECTUS_VERSION")
-echo -e "\e[32mSETUP PROCESS >>>\e[0m Found latest Directus Release Version: $DIRECTUS_TAG"
-echo -e "services:\n  directus:\n    restart: always\nimage: directus/directus:$DIRECTUS_TAG\n    ports:\n      - 8055:8055\n    volumes:\n      - ./database:/directus/database\n      - ./uploads:/directus/uploads\n      - ./extensions:/directus/extensions\n    environment:\n      SECRET: \"$DIRECTUS_SECRET\"\n      ADMIN_EMAIL: \"the@nikdelv.in\"\n      ADMIN_PASSWORD: \"$PASSWORD\"\n      DB_CLIENT: \"sqlite3\"\n      DB_FILENAME: \"/directus/database/data.db\"\n      WEBSOCKETS_ENABLED: \"true\"" > docker-compose.yml
-sudo docker compose up -d
-echo -e "\e[32mSETUP PROCESS >>>\e[0m Waiting for Directus deploy to be completed..."
+mkdir siyuan
+cd siyuan
+curl -O https://raw.githubusercontent.com/nikdelvin/deploit/main/siyuan/docker-compose.yml
+YOUR_USER_PUID=$(id -u)
+YOUR_USER_PGID=$(id -g)
+YOUR_TIME_ZONE="Asia/Dubai"
+echo -e "YOUR_USER_PUID=\"$YOUR_USER_PUID\"\nYOUR_USER_PGID=\"$YOUR_USER_PGID\"\nYOUR_TIME_ZONE=\"$YOUR_TIME_ZONE\"" > .env
+sudo docker compose --env-file .env up -d
+echo -e "\e[32mSETUP PROCESS >>>\e[0m Waiting for Siyuan deploy to be completed..."
 sleep 60
-DIRECTUS_DEPLOY_RESULT=$(curl http://127.0.0.1:8055/admin | \
-    grep "Directus")
-if [[ -n "$DIRECTUS_DEPLOY_RESULT" ]]; then
-    echo -e "\e[32mSETUP PROCESS >>>\e[0m Directus deploy completed"
+SIYUAN_DEPLOY_RESULT=$(curl http://127.0.0.1:6806/setup | \
+    grep "siyuan")
+if [[ -n "$SIYUAN_DEPLOY_RESULT" ]]; then
+    echo -e "\e[32mSETUP PROCESS >>>\e[0m Siyuan deploy completed"
 else
-    echo -e "\e[31mSETUP ERROR >>>\e[0m Directus deploy not completed"
+    echo -e "\e[31mSETUP ERROR >>>\e[0m Siyuan deploy not completed"
     exit 1
 fi
-echo -e "\e[32mSETUP PROCESS >>>\e[0m Configuring NGINX for Directus..."
+echo -e "\e[32mSETUP PROCESS >>>\e[0m Configuring NGINX for Siyuan..."
 cd /etc/nginx/sites-enabled
-echo -e "server {\n\tserver_name directus.$DOMAIN;\n\tlocation / {\n\t\tproxy_pass http://127.0.0.1:8055;\n\t}\n\tlisten [::]:80;\n}" > "directus.$DOMAIN.conf"
+echo -e "map \$http_upgrade \$connection_upgrade {\n\tdefault upgrade;\n\t'' close;\n}\nserver {\n\tserver_name $SUBDOMAIN.$DOMAIN;\n\tlocation / {\n\t\tproxy_pass http://127.0.0.1:6806;\n\t\tproxy_http_version 1.1;\n\t\tproxy_set_header Upgrade \$http_upgrade;\n\t\tproxy_set_header Connection \"upgrade\";\n\t\tproxy_set_header Host \$host;\n\t\tproxy_set_header Origin \"https://$SUBDOMAIN.$DOMAIN\";\n\t\tproxy_set_header X-Real-IP \$remote_addr;\n\t}\n\tlisten [::]:80;\n}" > "$SUBDOMAIN.$DOMAIN.conf"
 echo -e "\e[32mSETUP PROCESS >>>\e[0m Installing Certbot for NGINX..."
 sudo snap install core; sudo snap refresh core
 sudo snap install --classic certbot
 sudo ln -s /snap/bin/certbot /usr/bin/certbot
-sudo certbot --non-interactive --agree-tos --nginx -d "directus.$DOMAIN"
+sudo certbot --non-interactive --agree-tos --nginx -d "$SUBDOMAIN.$DOMAIN"
 sudo service nginx restart
 echo -e "\e[32mSETUP PROCESS >>>\e[0m Waiting for DNS deploy to be completed..."
 sleep 60
-NGINX_SETUP_RESULT=$(curl https://directus.$DOMAIN/admin | \
-    grep "Directus")
+NGINX_SETUP_RESULT=$(curl https://$SUBDOMAIN.$DOMAIN/setup | \
+    grep "siyuan")
 if [[ -n "$NGINX_SETUP_RESULT" ]]; then
-    echo -e "\e[32mSETUP PROCESS >>>\e[0m Directus DNS deploy completed"
+    echo -e "\e[32mSETUP PROCESS >>>\e[0m N8N DNS deploy completed"
 else
-    echo -e "\e[31mSETUP ERROR >>>\e[0m Directus DNS deploy not completed"
+    echo -e "\e[31mSETUP ERROR >>>\e[0m N8N DNS deploy not completed"
     exit 1
 fi
-echo -e "\e[32mSETUP COMPLETED >>>\e[0m All is set! Go ahead and visit https://directus.$DOMAIN"
+echo -e "\e[32mSETUP COMPLETED >>>\e[0m All is set! Go ahead and visit https://$SUBDOMAIN.$DOMAIN"

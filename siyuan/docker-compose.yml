@@ -1,0 +1,15 @@
+version: "3.9"
+services:
+  main:
+    image: b3log/siyuan
+    command: ['--workspace=/siyuan/workspace/', '--accessAuthCode=${AuthCode}']
+    ports:
+      - 6806:6806
+    volumes:
+      - /siyuan/workspace:/siyuan/workspace
+    restart: always
+    environment:
+      # A list of time zone identifiers can be found at https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+      - TZ=${YOUR_TIME_ZONE}
+      - PUID=${YOUR_USER_PUID}  # Customize user ID
+      - PGID=${YOUR_USER_PGID}  # Customize group ID
